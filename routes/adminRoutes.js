@@ -1,32 +1,31 @@
 const router = require("express").Router();
 const {adminlogin, adminlogout, adminBlog} = require("../controllers/adminController");
-
 const { verifyToken, authorizeRole } = require("../middlewares/authMiddleware");
-// Importing image upload middleware
 const { 
     upload, 
     uploadToCloudinary, 
     handleUploadError,
 } = require('../middlewares/imageUpload');
 
-
 router.post("/adminlogin", adminlogin);
 router.post("/adminlogout", adminlogout);
 
+// Add debug middleware to check Cloudinary result
+const debugMiddleware = (req, res, next) => {
+    console.log('Cloudinary Result:', req.cloudinaryResult);
+    next();
+};
 
-//add Blog api from admin
+// Updated add-blog route with debug middleware
 router.post(
     "/add-blog",
     verifyToken,
-    authorizeRole("admin"), // Only admin can add blogs
+    authorizeRole("admin"),
     upload.single('image'), 
-    // handleUploadError,
-    // uploadToCloudinary,
+    handleUploadError,
+    uploadToCloudinary,
+    debugMiddleware, // Add debug middleware
     adminBlog
 );
-
-
-
-
 
 module.exports = router;

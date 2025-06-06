@@ -68,9 +68,11 @@ const uploadImage = async (file, options = {}) => {
         };
 
         const result = await cloudinary.uploader.upload(file.path, uploadOptions);
+        // console.log('Cloudinary upload result:', result);
         return result;
     } catch (error) {
-        throw new Error(`Image upload failed: ${error.message}`);
+        console.error('Cloudinary upload error:', error);
+        throw error;
     }
 };
 

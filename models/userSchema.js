@@ -29,6 +29,14 @@ const UserSchema = new mongoose.Schema({
     url: String,
     publicId: String
   },
+  favorites: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Blog'
+  }], // Array of blog IDs that the user has favorited
+  likeBlogs: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Blog'
+  }], // Array of blog IDs that the user has liked
     
 },{timestamps:true})
 

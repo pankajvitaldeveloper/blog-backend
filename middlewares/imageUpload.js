@@ -40,39 +40,96 @@ const upload = multer({
     }
 });
 
+// Middleware to handle file upload and upload to Cloudinary
+// const uploadToCloudinary = async (req, res, next) => {
+//     try {
+//         if (!req.file) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: 'No file uploaded'
+//             });
+//         }
+
+//         // Add debug logging
+//         // console.log('Uploading file to Cloudinary:', {
+//         //     originalname: req.file.originalname,
+//         //     path: req.file.path
+//         // });
+
+//         // Upload to Cloudinary
+//         const result = await uploadImage(req.file);
+        
+//         // Store complete Cloudinary result
+//         req.cloudinaryResult = {
+//             secure_url: result.secure_url,
+//             public_id: result.public_id,
+//             url: result.url
+//         };
+
+//         // console.log('Cloudinary upload successful:', req.cloudinaryResult);
+
+//         // Clean up local file
+//         fs.unlink(req.file.path, (err) => {
+//             if (err) {
+//                 console.error('Error deleting local file:', err);
+//             } else {
+//                 console.log('Local file cleaned up successfully');
+//             }
+//         });
+
+//         next();
+//     } catch (error) {
+//         console.error('Cloudinary upload error:', {
+//             message: error.message,
+//             stack: error.stack
+//         });
+
+//         // Clean up local file on error
+//         if (req.file?.path) {
+//             fs.unlink(req.file.path, (err) => {
+//                 if (err) console.error('Error deleting local file:', err);
+//             });
+//         }
+
+//         return res.status(500).json({
+//             success: false,
+//             message: `Upload failed: ${error.message}`
+//         });
+//     }
+// };
+
+
+
 const uploadToCloudinary = async (req, res, next) => {
     try {
-        // console.log('Starting upload to Cloudinary...', req.file);
-        
         if (!req.file) {
-            return res.status(400).json({
-                success: false,
-                message: 'No file uploaded'
-            });
+            // No file uploaded — this is valid during update, just move on
+            console.log('No new file uploaded. Skipping Cloudinary.');
+            return next();
         }
 
-        // Upload to Cloudinary
         const result = await uploadImage(req.file);
-        // console.log('Cloudinary upload result:', result);
-        
-        // Add Cloudinary result to request object
+
         req.cloudinaryResult = {
-            url: result.secure_url,
-            publicId: result.public_id
+            secure_url: result.secure_url,
+            public_id: result.public_id,
+            url: result.url
         };
 
         // Clean up local file
         fs.unlink(req.file.path, (err) => {
-            if (err) console.error('Error deleting local file:', err);
+            if (err) {
+                console.error('Error deleting local file:', err);
+            } else {
+                console.log('Local file cleaned up successfully');
+            }
         });
 
-        // console.log('Upload successful, proceeding to next middleware');
         next();
     } catch (error) {
-        console.error('Detailed upload error:', {
-            error: error.message,
-            stack: error.stack,
-            file: req?.file
+        console.error('Cloudinary upload error:', {
+            message: error.message,
+            stack: error.stack
         });
 
         // Clean up local file on error
@@ -88,8 +145,14 @@ const uploadToCloudinary = async (req, res, next) => {
         });
     }
 };
+
+
+
+
 // Error handling middleware
 const handleUploadError = (err, req, res, next) => {
+    console.error('Upload error:', err);
+
     if (err instanceof multer.MulterError) {
         if (err.code === 'LIMIT_FILE_SIZE') {
             return res.status(400).json({
@@ -99,9 +162,17 @@ const handleUploadError = (err, req, res, next) => {
         }
         return res.status(400).json({
             success: false,
-            message: err.message
+            message: `Upload error: ${err.message}`
         });
     }
+
+    if (err.message === 'Invalid file type') {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid file type. Only JPEG, JPG, PNG and GIF allowed.'
+        });
+    }
+
     next(err);
 };
 
@@ -109,67 +180,77 @@ const handleUploadError = (err, req, res, next) => {
 //update the image 
 const updateAvatar = async (req, res) => {
     try {
-        // console.log('Starting avatar update...', {
-        //     user: req.user,
-        //     cloudinaryResult: req.cloudinaryResult
-        // });
+        console.log('Request data:', {
+            user: req.user,
+            cloudinaryResult: req.cloudinaryResult,
+            file: req.file
+        });
 
+        // Check user authentication
         if (!req.user?.id) {
-            console.error('Missing user ID');
-            return res.status(400).json({
+            return res.status(401).json({
                 success: false,
-                message: "User ID is required"
+                message: "Authentication required"
             });
         }
 
-        if (!req.cloudinaryResult?.url || !req.cloudinaryResult?.publicId) {
-            console.error('Missing cloudinary result');
+        // Check if file was uploaded and processed by Cloudinary
+        if (!req.cloudinaryResult || !req.cloudinaryResult.secure_url) {
             return res.status(400).json({
                 success: false,
-                message: "Image upload data is missing"
+                message: "Image upload failed or missing"
             });
         }
 
         const userId = req.user.id;
-        const { url, publicId } = req.cloudinaryResult;
+        const { secure_url: url, public_id: publicId } = req.cloudinaryResult;
+
+        // Find and update user
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found"
+            });
+        }
 
         // Delete old avatar if exists
-        const user = await User.findById(userId);
-        // console.log('Found user:', user);
-
         if (user.avatar?.publicId && user.avatar.publicId !== 'default-avatar') {
-            // console.log('Deleting old avatar:', user.avatar.publicId);
-            await deleteImage(user.avatar.publicId);
+            try {
+                await deleteImage(user.avatar.publicId);
+                console.log('Old avatar deleted successfully');
+            } catch (error) {
+                console.error('Error deleting old avatar:', error);
+            }
         }
 
         // Update user with new avatar
         const updatedUser = await User.findByIdAndUpdate(
             userId,
             {
-                avatar: { url, publicId }
+                avatar: {
+                    url: url,
+                    publicId: publicId
+                }
             },
             { new: true }
         );
 
-        // console.log('Updated user:', updatedUser);
-
-        if (!updatedUser) {
-            throw new Error('Failed to update user');
-        }
+        console.log('Avatar updated successfully:', {
+            url: updatedUser.avatar.url,
+            publicId: updatedUser.avatar.publicId
+        });
 
         res.status(200).json({
             success: true,
+            message: "Avatar updated successfully",
             data: {
                 url: updatedUser.avatar.url,
                 publicId: updatedUser.avatar.publicId
             }
         });
     } catch (error) {
-        console.error('Detailed update error:', {
-            error: error.message,
-            stack: error.stack
-        });
-        
+        console.error('Avatar update error:', error);
         res.status(500).json({
             success: false,
             message: `Failed to update avatar: ${error.message}`
@@ -220,3 +301,5 @@ module.exports = {
     deleteFromCloudinary,
     updateAvatar
 };
+
+// above code is working of blog image upload and user avatar update

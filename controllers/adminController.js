@@ -2,6 +2,10 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/userSchema");
 const Blog = require("../models/blogSchema");
+// below code is used to create blog and save it to database
+const Category = require("../models/categorySchema");
+
+
 
 const adminlogin = async (req, res) => {
   try {
@@ -100,19 +104,22 @@ const adminlogout = async (req, res) => {
 // create blog below api
 const adminBlog = async (req, res) => {
   try {
+    // const { title, description, category } = req.body;
     const { title, description, category } = req.body;
-    console.log("Request body:", req.body);
-    console.log("Uploaded file:", req.file);
+    
+    // Validate basic fields
     if (!title || !description || !category) {
       return res.status(400).json({ 
         success: false,
         message: "All fields are required"
       });
     }
-    if(!req.file) {
+
+    // Check for Cloudinary result
+    if (!req.cloudinaryResult || !req.cloudinaryResult.secure_url) {
       return res.status(400).json({
         success: false,
-        message: "Image file is required"
+        message: "Image upload failed"
       });
     }
 
@@ -120,12 +127,11 @@ const adminBlog = async (req, res) => {
       title,
       description,
       category,
-      image: req.file.path, // Assuming req.file.path contains the image URL
+      image: req.cloudinaryResult.secure_url // Use Cloudinary URL
     });
 
     await newBlog.save();
     
-    // Add success response
     res.status(201).json({
       success: true,
       message: "Blog created successfully",
@@ -133,8 +139,9 @@ const adminBlog = async (req, res) => {
     });
 
   } catch (error) {
+    console.error("Error creating blog:", error);
     res.status(500).json({
-      success: false, // Fixed typo in success
+      success: false,
       message: "Internal Server Error"
     });
   }
@@ -146,3 +153,5 @@ module.exports = {
   adminlogout,
   adminBlog  
 };
+
+// code is working for admin login, logout and blog creation

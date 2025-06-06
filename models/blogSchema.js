@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
-const UserSchema = new mongoose.Schema({
+
+const BlogSchema = new mongoose.Schema({
     title: {
         type: String,
         required: true,
@@ -9,20 +10,28 @@ const UserSchema = new mongoose.Schema({
         required: true,
     },
     category: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Category',
+        required: true
+    },
+    image: {
         type: String,
         required: true,
-        enum: ['Technology', 'Health', 'Lifestyle', 'Education', 'Travel', 'Food'],
     },
-    image :{
-        type: String,
-        required: true,
-    },
-    likes : {
+    likes: {
         type: Number,
         default: 0,
     },
-    
-},{timestamps:true})
+    favorites: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+    likeBlogs: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+}, { timestamps: true });
 
-const Blog = mongoose.model('Blog', UserSchema);
+const Blog = mongoose.model('Blog', BlogSchema);
 module.exports = Blog;
+

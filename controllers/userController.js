@@ -279,6 +279,41 @@ const changePassword = async (req, res) => {
   }
 };
 
+const getUserFavorites = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Find user and populate their favorites with blog details
+    const user = await User.findById(userId).populate({
+      path: "favorites",
+      select: "_id title description image category likeBlogs createdAt",
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Remove any duplicate blogs
+    const uniqueFavorites = [...new Set(user.favorites.map((blog) => blog._id))].map((id) =>
+      user.favorites.find((blog) => blog._id.toString() === id.toString())
+    );
+
+    return res.status(200).json({
+      success: true,
+      favorites: uniqueFavorites,
+    });
+  } catch (error) {
+    console.error("Error in getUserFavorites:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
+  }
+};
+
 // Update module exports
 module.exports = {
   register,
@@ -288,4 +323,5 @@ module.exports = {
   getProfileData,
   changePassword,
   updateAvatar,
+  getUserFavorites,
 };

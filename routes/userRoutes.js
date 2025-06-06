@@ -6,6 +6,7 @@ const {
   checkCookie,
   getProfileData,
   changePassword,
+  getUserFavorites,
 } = require("../controllers/userController");
 const { verifyToken, authorizeRole } = require("../middlewares/authMiddleware");
 
@@ -65,5 +66,7 @@ router.post('/update-avatar',
 );
 
 router.delete('/delete-image', deleteFromCloudinary);
+
+router.get('/favorites', verifyToken, getUserFavorites);
 
 module.exports = router;
