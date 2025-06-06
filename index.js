@@ -12,7 +12,7 @@ const port = process.env.PORT || 1000;
 // CORS Configuration
 const corsOptions = {
     // origin: 'http://localhost:5173', // Your frontend URL
-    origin: 'https://blog-frontend-pi-rose.vercel.app/', // Your frontend URL
+    origin: 'https://blog-frontend-pi-rose.vercel.app', // Your frontend URL
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Set-Cookie'], // Expose Set-Cookie header for client-side access
